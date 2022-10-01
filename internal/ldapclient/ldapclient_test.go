@@ -268,7 +268,7 @@ func TestFindOIDCClaims(t *testing.T) {
 		bindPass       string
 		user           string
 		attrClaims     map[string]string
-		flatRoleClaims map[string]string
+		flatRoleClaims bool
 		wantErr        error
 		want           map[string]interface{}
 	}{
@@ -374,24 +374,25 @@ func TestFindOIDCClaims(t *testing.T) {
 			name:           "skip flat role if no app",
 			connector:      newTestConnector("ep1", &testConn{users: users}),
 			user:           "user1",
-			flatRoleClaims: map[string]string{"app1": "claimA"},
+			flatRoleClaims: true,
 			want:           map[string]interface{}{"test-roles-claim": make(map[string]interface{})},
 		},
 		{
 			name:           "flat roles for one application",
 			connector:      newTestConnector("ep1", &testConn{users: users}),
 			user:           "user2",
-			flatRoleClaims: map[string]string{"app1": "app1-roles-claim"},
-			want: map[string]interface{}{"app1-roles-claim": []interface{}{"r1", "r2"},
+			flatRoleClaims: true,
+			want: map[string]interface{}{"test-roles-claim/app1": []interface{}{"r1", "r2"},
 				"test-roles-claim": map[string]interface{}{"app1": []interface{}{"r1", "r2"}}},
 		},
 		{
 			name:           "flat roles for multiple applications",
 			connector:      newTestConnector("ep1", &testConn{users: users}),
 			user:           "user3",
-			flatRoleClaims: map[string]string{"app2": "app2-roles-claim"},
-			want: map[string]interface{}{"app2-roles-claim": []interface{}{"r3", "r4"},
-				"test-roles-claim": map[string]interface{}{"app1": []interface{}{"r1", "r2"}, "app2": []interface{}{"r3", "r4"}}},
+			flatRoleClaims: true,
+			want: map[string]interface{}{"test-roles-claim/app1": []interface{}{"r1", "r2"},
+				"test-roles-claim/app2": []interface{}{"r3", "r4"},
+				"test-roles-claim":      map[string]interface{}{"app1": []interface{}{"r1", "r2"}, "app2": []interface{}{"r3", "r4"}}},
 		},
 	}
 	for _, tc := range testCases {

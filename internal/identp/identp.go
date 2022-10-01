@@ -31,6 +31,7 @@ type Config struct {
 	SessionTTL         time.Duration     `envconfig:"session_ttl" default:"24h" desc:"a user session's TTL"`
 	ClaimScopes        map[string]string `envconfig:"claim_scopes" default:"name:profile,family_name:profile,given_name:profile,email:email,https%3A%2F%2Fgithub.com%2Fi-core%2Fwerther%2Fclaims%2Froles:roles" desc:"a mapping of OpenID Connect claims to scopes (all claims are URL encoded)"`
 	FakeTLSTermination bool              `envconfig:"fake_tls_termination" default:"false" desc:"Fake tls termination by adding \"X-Forwarded-Proto: https\" to http headers "`
+	RoleClaim          string            // Same value as LDAP role_claim
 }
 
 // UserManager is an interface that is used for authentication and providing user's claims.
@@ -86,7 +87,7 @@ func (h *Handler) AddRoutes(apply func(m, p string, h http.Handler, mws ...func(
 	sessionTTL := int(h.SessionTTL.Seconds())
 	apply(http.MethodGet, "/login", newLoginStartHandler(hydra.NewLoginReqDoer(h.HydraURL, h.FakeTLSTermination, 0), h.tr))
 	apply(http.MethodPost, "/login", newLoginEndHandler(hydra.NewLoginReqDoer(h.HydraURL, h.FakeTLSTermination, sessionTTL), h.um, h.tr))
-	apply(http.MethodGet, "/consent", newConsentHandler(hydra.NewConsentReqDoer(h.HydraURL, h.FakeTLSTermination, sessionTTL), h.um, h.ClaimScopes))
+	apply(http.MethodGet, "/consent", newConsentHandler(hydra.NewConsentReqDoer(h.HydraURL, h.FakeTLSTermination, sessionTTL), h.um, h.ClaimScopes, h.RoleClaim))
 	apply(http.MethodGet, "/logout", newLogoutHandler(hydra.NewLogoutReqDoer(h.HydraURL, h.FakeTLSTermination)))
 }
 
@@ -222,7 +223,7 @@ type oa2ConsentReqProcessor interface {
 	AcceptConsentRequest(challenge string, remember bool, grantScope []string, grantAudience []string, idToken interface{}) (string, error)
 }
 
-func newConsentHandler(rproc oa2ConsentReqProcessor, cfinder oidcClaimsFinder, claimScopes map[string]string) http.HandlerFunc {
+func newConsentHandler(rproc oa2ConsentReqProcessor, cfinder oidcClaimsFinder, claimScopes map[string]string, roleClaim string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := rlog.FromContext(r.Context()).Sugar()
 
@@ -262,9 +263,16 @@ func newConsentHandler(rproc oa2ConsentReqProcessor, cfinder oidcClaimsFinder, c
 		// Remove claims that are not in the requested scopes.
 		for claim := range claims {
 			var found bool
+
+			// In the case of the flat roles group, only the main role claim is defined in the claim scopes
+			claimRoot := claim
+			if strings.HasPrefix(claim, roleClaim+"/") {
+				claimRoot = roleClaim
+			}
+
 			// We need to escape a claim due to ClaimScopes' keys contain URL encoded claims.
 			// It is because of config option's format compatibility.
-			if scope, ok := claimScopes[url.QueryEscape(claim)]; ok {
+			if scope, ok := claimScopes[url.QueryEscape(claimRoot)]; ok {
 				for _, rscope := range ri.RequestedScopes {
 					if rscope == scope {
 						found = true

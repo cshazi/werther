@@ -59,7 +59,7 @@ type Config struct {
 	CacheSize      int               `envconfig:"cache_size" default:"512" desc:"a user info cache's size in KiB"`
 	CacheTTL       time.Duration     `envconfig:"cache_ttl" default:"30m" desc:"a user info cache TTL"`
 	IsTLS          bool              `envconfig:"is_tls" default:"false" desc:"should LDAP connection be established via TLS"`
-	FlatRoleClaims map[string]string `envconfig:"flat_role_claims" desc:"a mapping of groups under RoleBaseDN to OpenID Connect claims"`
+	FlatRoleClaims bool              `envconfig:"flat_role_claims" desc:"add roles claim as single list"`
 }
 
 // Client is a LDAP client (compatible with Active Directory).
@@ -218,15 +218,11 @@ func (cli *Client) FindOIDCClaims(ctx context.Context, username string) (map[str
 		if v := roles[appID]; v != nil {
 			appRoles = v.([]interface{})
 		}
-		roles[appID] = append(appRoles, entry[cli.RoleAttr])
-	}
+		appRoles = append(appRoles, entry[cli.RoleAttr])
+		roles[appID] = appRoles
 
-	for appID, roleClaim := range cli.FlatRoleClaims {
-		if v := roles[appID]; v != nil {
-			claims[roleClaim] = v
-			log.Debugw("Application roles: ", "appID", appID, "roles", v)
-		} else {
-			log.Warnw("Failed to get application roles", "appID", appID)
+		if cli.FlatRoleClaims {
+			claims[cli.RoleClaim+"/"+appID] = appRoles
 		}
 	}
 
