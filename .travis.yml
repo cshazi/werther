@@ -17,7 +17,7 @@ cache:
     - "$GOPATH/pkg/mod"
     - "$GOPATH/bin"
 
-install: curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.16.0
+install: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.49.0
 
 script:
   - go test -v -coverprofile=coverage.txt ./...
@@ -38,10 +38,10 @@ script:
     (cd bin && sha256sum *.{tar.gz,zip} > werther_checksums.txt)
   - |
     set -e
-    docker build --build-arg GOPROXY --build-arg VERSION=$TRAVIS_TAG -t "icoreru/werther:$TRAVIS_COMMIT" .
+    docker build --build-arg GOPROXY --build-arg VERSION=$TRAVIS_TAG -t "cshazi/werther:$TRAVIS_COMMIT" .
     if [ -n "$TRAVIS_TAG" ]; then
-      docker tag "icoreru/werther:$TRAVIS_COMMIT" "icoreru/werther:$TRAVIS_TAG"
-      docker tag "icoreru/werther:$TRAVIS_COMMIT" "icoreru/werther:latest"
+      docker tag "cshazi/werther:$TRAVIS_COMMIT" "cshazi/werther:$TRAVIS_TAG"
+      docker tag "cshazi/werther:$TRAVIS_COMMIT" "cshazi/werther:latest"
     fi
 
 after_success:
@@ -70,14 +70,14 @@ deploy:
 
   - provider: script
     skip_cleanup: true
-    script: docker push "icoreru/werther:$TRAVIS_TAG"
+    script: docker push "cshazi/werther:$TRAVIS_TAG"
     on:
       tags: true
       condition: $TRAVIS_OS_NAME = linux
 
   - provider: script
     skip_cleanup: true
-    script: docker push "icoreru/werther:latest"
+    script: docker push "cshazi/werther:latest"
     on:
       tags: true
       condition: $TRAVIS_OS_NAME = linux
